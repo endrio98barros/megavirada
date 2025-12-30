@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Brincadeira Mega Família</title>
+<style>
+body { font-family: Arial; max-width: 800px; margin: 20px auto; }
+textarea { width: 100%; height: 60px; }
+pre { background: #f4f4f4; padding: 12px; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<h2>Brincadeira Estilo Mega-Sena</h2>
+
+<p>Digite as 6 dezenas sorteadas (separadas por espaço):</p>
+<textarea id="sorteio"></textarea>
+
+<button onclick="processar()">Analisar</button>
+
+<h3>Resultado</h3>
+<pre id="saida"></pre>
+
+<script>
+function combinations(arr, k) {
+  const res = [];
+  function backtrack(start, combo) {
+    if (combo.length === k) { res.push(combo.slice()); return; }
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      backtrack(i + 1, combo);
+      combo.pop();
+    }
+  }
+  backtrack(0, []);
+  return res;
+}
+
+async function carregarCSV() {
+  const resp = await fetch('jogos.csv');
+  if (!resp.ok) throw new Error('Não consegui carregar jogos.csv');
+  const texto = await resp.text();
+  return texto.trim().split(/\r?\n/);
+}
+
+async function processar() {
+  const sorteio = document.getElementById("sorteio").value
+    .trim().split(/\s+/).map(Number);
+
+  if (sorteio.length !== 6) {
+    alert("Digite exatamente 6 dezenas.");
+    return;
+  }
+
+  try {
+    const linhas = await carregarCSV();
+    const saida = [];
+
+    for (let i = 1; i < linhas.length; i++) {
+      const partes = linhas[i].split(",");
+      const jogoId = partes[0];
+      const comentario = partes[1];
+      const dezenasStr = partes.slice(2).join(",");
+      const dezenas = dezenasStr.trim().split(/\s+/).map(Number);
+
+      const acertosTotais = dezenas.filter(d => sorteio.includes(d)).length;
+      const combs = combinations(dezenas, 6);
+
+      let quadra = 0, quina = 0, mega = 0;
+
+      combs.forEach(c => {
+        const hits = c.filter(n => sorteio.includes(n)).length;
+        if (hits === 4) quadra++;
+        if (hits === 5) quina++;
+        if (hits === 6) mega++;
+      });
+
+      saida.push(
+        `JOGO ${jogoId}:\n` +
+        `comentário: ${comentario}\n` +
+        `dezenas: ${dezenas.join(" ")}\n` +
+        `acertos totais: ${acertosTotais}\n` +
+        `${quadra} ganhos de quadra\n` +
+        `${quina} ganhos de quina\n` +
+        `${mega} ganhos de megasena\n`
+      );
+    }
+
+    document.getElementById("saida").textContent = saida.join("\n");
+  } catch (e) {
+    alert("Erro ao processar: " + e.message);
+  }
+}
+</script>
+
+</body>
+</html>
